@@ -40,8 +40,52 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     val activeTabId: StateFlow<String> = _activeTabId.asStateFlow()
 
     val activeTab: StateFlow<BrowserTab?> = combine(_tabs, _activeTabId) { tabs, activeId ->
-        tabs.find { it.id == activeId }
+        tabs.find { it.id == activeId } ?: tabs.firstOrNull()
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), _tabs.value.first())
+
+    init {
+        viewModelScope.launch {
+            val savedTabs = repository.getAllTabs()
+            if (savedTabs.isNotEmpty()) {
+                val browserTabs = savedTabs.map { entity ->
+                    BrowserTab(
+                        id = entity.id,
+                        url = entity.url,
+                        title = entity.title,
+                        jsEnabled = entity.jsEnabled,
+                        desktopMode = entity.desktopMode
+                    )
+                }
+                _tabs.value = browserTabs
+                val activeEntity = savedTabs.find { it.lastActive } ?: savedTabs.first()
+                _activeTabId.value = activeEntity.id
+            } else {
+                persistTabsState()
+            }
+        }
+    }
+
+    private fun persistTabsState() {
+        val currentTabs = _tabs.value
+        val activeId = _activeTabId.value
+        viewModelScope.launch {
+            val currentIds = currentTabs.map { it.id }
+            repository.deleteTabsExcept(currentIds)
+            currentTabs.forEachIndexed { index, tab ->
+                repository.insertTab(
+                    TabEntity(
+                        id = tab.id,
+                        url = tab.url,
+                        title = tab.title,
+                        jsEnabled = tab.jsEnabled,
+                        desktopMode = tab.desktopMode,
+                        lastActive = tab.id == activeId,
+                        displayOrder = index
+                    )
+                )
+            }
+        }
+    }
 
     // Toggle Bookmarks flow for UI highlights
     fun isBookmarked(url: String): Flow<Boolean> = repository.isBookmarked(url)
@@ -56,6 +100,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         val newTab = BrowserTab(url = url, title = title)
         _tabs.update { it + newTab }
         _activeTabId.value = newTab.id
+        persistTabsState()
     }
 
     fun closeTab(tabId: String) {
@@ -65,6 +110,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             val replacement = BrowserTab()
             _tabs.value = listOf(replacement)
             _activeTabId.value = replacement.id
+            persistTabsState()
             return
         }
 
@@ -77,10 +123,12 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             val nextActiveIndex = if (closingIndex >= newList.size) newList.size - 1 else closingIndex
             _activeTabId.value = newList[nextActiveIndex].id
         }
+        persistTabsState()
     }
 
     fun selectTab(tabId: String) {
         _activeTabId.value = tabId
+        persistTabsState()
     }
 
     private fun updateTab(tabId: String, block: (BrowserTab) -> BrowserTab) {
@@ -91,6 +139,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
 
     fun updateUrl(tabId: String, url: String) {
         updateTab(tabId) { it.copy(url = url) }
+        persistTabsState()
     }
 
     fun updateProgress(tabId: String, progress: Int, isLoading: Boolean) {
@@ -103,10 +152,12 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
 
     fun toggleJs(tabId: String) {
         updateTab(tabId) { it.copy(jsEnabled = !it.jsEnabled) }
+        persistTabsState()
     }
 
     fun toggleDesktopMode(tabId: String) {
         updateTab(tabId) { it.copy(desktopMode = !it.desktopMode) }
+        persistTabsState()
     }
 
     fun onPageFinished(tabId: String, title: String, url: String) {
@@ -116,6 +167,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             title
         }
         updateTab(tabId) { it.copy(url = url, title = polishedTitle) }
+        persistTabsState()
 
         // Insert into history (ignore search engine queries if desired or load cleanly)
         if (url.isNotBlank() && !url.startsWith("about:") && !url.startsWith("chrome:")) {

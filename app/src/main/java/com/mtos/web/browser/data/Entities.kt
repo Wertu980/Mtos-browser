@@ -17,3 +17,15 @@ data class HistoryItem(
     val title: String,
     val timestamp: Long = System.currentTimeMillis()
 )
+
+@Entity(tableName = "browser_tabs")
+data class TabEntity(
+    @PrimaryKey val id: String,
+    val url: String,
+    val title: String,
+    val jsEnabled: Boolean,
+    val desktopMode: Boolean,
+    val lastActive: Boolean,
+    val displayOrder: Int
+)
+

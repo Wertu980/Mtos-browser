@@ -107,7 +107,7 @@ fun BrowserScreen(
 
     // Active WebView helper
     val activeWebView = activeTab?.let { tab ->
-        getOrCreateWebView(context, tab.id, viewModel, webViews)
+        getOrCreateWebView(context, tab.id, tab.url, viewModel, webViews)
     }
 
     // Intercept hardware Back Button
@@ -1163,6 +1163,7 @@ fun LibraryEmptyState(
 fun getOrCreateWebView(
     context: Context,
     tabId: String,
+    initialUrl: String,
     viewModel: BrowserViewModel,
     webViews: MutableMap<String, WebView>
 ): WebView {
@@ -1214,6 +1215,11 @@ fun getOrCreateWebView(
                     super.onReceivedTitle(view, title)
                     viewModel.onPageFinished(tabId, title, view.url ?: "")
                 }
+            }
+
+            // Load initial page if it's a real web URL
+            if (initialUrl.isNotBlank() && initialUrl != "browser://home") {
+                loadUrl(initialUrl)
             }
         }
     }

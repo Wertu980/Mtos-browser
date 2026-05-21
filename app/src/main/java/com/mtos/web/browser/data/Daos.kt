@@ -35,3 +35,28 @@ interface HistoryDao {
     @Query("DELETE FROM history_items")
     suspend fun clearAllHistory()
 }
+
+@Dao
+interface TabDao {
+    @Query("SELECT * FROM browser_tabs ORDER BY displayOrder ASC")
+    suspend fun getAllTabs(): List<TabEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertTab(tab: TabEntity)
+
+    @Query("DELETE FROM browser_tabs WHERE id NOT IN (:ids)")
+    suspend fun deleteTabsNotInList(ids: List<String>): Int
+
+    @Query("DELETE FROM browser_tabs")
+    suspend fun clearAllTabs()
+
+    @Transaction
+    suspend fun deleteTabsExcept(ids: List<String>) {
+        if (ids.isEmpty()) {
+            clearAllTabs()
+        } else {
+            deleteTabsNotInList(ids)
+        }
+    }
+}
+
