@@ -43,7 +43,7 @@ class BrowserRepository(database: AppDatabase) {
     }
 
     suspend fun insertHistory(historyItem: HistoryItem) {
-        historyDao.insertHistory(historyItem)
+        historyDao.insertOrUpdateHistory(historyItem)
     }
 
     suspend fun deleteHistoryItem(id: Int) {

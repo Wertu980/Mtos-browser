@@ -29,11 +29,20 @@ interface HistoryDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertHistory(historyItem: HistoryItem)
 
+    @Query("DELETE FROM history_items WHERE url = :url")
+    suspend fun deleteHistoryByUrl(url: String)
+
     @Query("DELETE FROM history_items WHERE id = :id")
     suspend fun deleteHistoryItem(id: Int)
 
     @Query("DELETE FROM history_items")
     suspend fun clearAllHistory()
+
+    @Transaction
+    suspend fun insertOrUpdateHistory(historyItem: HistoryItem) {
+        deleteHistoryByUrl(historyItem.url)
+        insertHistory(historyItem)
+    }
 }
 
 @Dao

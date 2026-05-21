@@ -43,6 +43,9 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         tabs.find { it.id == activeId } ?: tabs.firstOrNull()
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), _tabs.value.first())
 
+    private val _isInitialized = MutableStateFlow(false)
+    val isInitialized: StateFlow<Boolean> = _isInitialized.asStateFlow()
+
     init {
         viewModelScope.launch {
             val savedTabs = repository.getAllTabs()
@@ -61,6 +64,24 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                 _activeTabId.value = activeEntity.id
             } else {
                 persistTabsState()
+            }
+            _isInitialized.value = true
+        }
+    }
+
+    fun handleExternalUrl(url: String?) {
+        if (url.isNullOrBlank()) return
+        viewModelScope.launch {
+            // Wait for initialization to complete to avoid race conditions with restored tabs
+            _isInitialized.first { it }
+
+            val currentTabs = _tabs.value
+            val activeId = _activeTabId.value
+            val active = currentTabs.find { it.id == activeId }
+            if (active != null && (active.url == "browser://home" || active.url.isBlank() || active.url == "about:blank")) {
+                updateUrl(activeId, url)
+            } else {
+                createNewTab(url)
             }
         }
     }
