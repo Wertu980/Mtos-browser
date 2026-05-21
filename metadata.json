@@ -1,0 +1,6 @@
+{
+  "name": "Web Browser",
+  "description": "A refined Android Web Browser built with Jetpack Compose, featuring multiple tabs, bookmarking, and local search/history persistence.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
